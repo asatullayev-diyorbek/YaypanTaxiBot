@@ -5,7 +5,8 @@ import re
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, CallbackQuery, ChatMemberAdministrator, \
-    ChatMemberOwner
+    ChatMemberOwner, Update
+from aiohttp import web
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -376,10 +377,33 @@ async def handle_message(message: Message):
 
     await message.reply("Foydalanuvchidan bunday xabar kutilmayapti")
 
+# Aiohttp server
+async def on_startup(app):
+    print("Webhook server ishga tushmoqda...")
+    await bot.set_webhook(url=f"https://16.171.199.2/webhook")
+
+async def on_shutdown(app):
+    print("Webhook server to'xtatildi...")
+    await bot.delete_webhook()
+
+
+async def handle_webhook(request):
+    data = await request.json()  # JSON ma'lumotlarini yuklab olish
+    update = Update(**data)  # Update obyektini yaratish
+    await dp.feed_raw_update(update)  # Dispatcherga yuborish
+    return web.Response(text="OK")
+
+# Aiohttp serverni sozlash
+app = web.Application()
+app.router.add_post("/webhook", handle_webhook)
+app.on_startup.append(on_startup)
+app.on_shutdown.append(on_shutdown)
+
 async def main():
     print("Bot ishga tushdi...")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run(main())
+    web.run_app(app, host="0.0.0.0", port=8000)
